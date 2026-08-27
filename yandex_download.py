@@ -82,8 +82,13 @@ def download_file(public_link: str, item: dict[str, Any], base: str, destination
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists() and item.get("size") == output.stat().st_size:
         return output
-    info = request_json(api_url(public_link, path=str(item["path"]), download=True))
-    direct = info.get("href")
+    # File metadata sometimes already contains a direct URL. Prefer it: this
+    # saves one API request and also works when the download endpoint is
+    # temporarily rate-limited.
+    direct = item.get("file")
+    if not isinstance(direct, str) or not direct.startswith("https://"):
+        info = request_json(api_url(public_link, path=str(item["path"]), download=True))
+        direct = info.get("href")
     if not isinstance(direct, str) or not direct.startswith("https://"):
         raise RuntimeError(f"Yandex did not provide a download URL for {item.get('path')}")
     temporary = output.with_name(output.name + ".part")
